@@ -1,0 +1,27 @@
+# GEO モニタリング SaaS — 依存パッケージ
+# 更新: google-generativeai -> google-genai (google.genai SDK)
+
+# AI API クライアント
+anthropic>=0.34.0
+openai>=1.40.0
+google-genai>=1.0.0          # 旧: google-generativeai（サポート終了）
+requests>=2.32.0
+
+# DB
+psycopg2-binary>=2.9.9
+
+# Google Sheets 出力
+gspread>=6.1.0
+google-auth>=2.29.0
+
+# バリデーション・リトライ
+pydantic>=2.7.0
+tenacity>=8.5.0
+
+# 環境変数読み込み
+python-dotenv>=1.0.0
+
+# ダッシュボード
+streamlit>=1.35.0
+plotly>=5.22.0
+pandas>=2.0.0
