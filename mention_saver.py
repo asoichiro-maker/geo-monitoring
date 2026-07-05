@@ -25,12 +25,20 @@ logger = logging.getLogger(__name__)
 
 
 def _db_connect(database_url: str) -> psycopg2.extensions.connection:
-    """Windows 環境での文字コード問題を回避するため client_encoding を明示する。
-    Supabase 等クラウドDB接続時は sslmode=require を自動付与する。"""
-    kwargs: dict = {"client_encoding": "UTF8"}
-    if "supabase.co" in database_url and "sslmode" not in database_url:
-        kwargs["sslmode"] = "require"
-    return psycopg2.connect(database_url, **kwargs)
+    """URL を個別パラメーターに分解して接続する。
+    %40 等の URL エンコードを正しくデコードし、Supabase の SSL にも対応。"""
+    from urllib.parse import urlparse, unquote
+    p = urlparse(database_url)
+    is_supabase = "supabase.co" in database_url
+    return psycopg2.connect(
+        host=p.hostname,
+        port=p.port or 5432,
+        dbname=(p.path or "/postgres").lstrip("/"),
+        user=unquote(p.username or ""),
+        password=unquote(p.password or ""),
+        client_encoding="UTF8",
+        sslmode="require" if is_supabase else "prefer",
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
