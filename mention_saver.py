@@ -67,8 +67,8 @@ class MentionSaver:
         rows = [self._to_db_row(r.ai_response_id, r.result) for r in records]
         with _db_connect(self.database_url) as conn:
             with conn.cursor() as cur:
-                execute_values(cur, sql, rows)
-                ids = [str(row[0]) for row in cur.fetchall()]
+                result_rows = execute_values(cur, sql, rows, fetch=True)
+                ids = [str(row[0]) for row in result_rows]
         logger.info("mention_analysis バッチ保存: %d 件", len(ids))
         return ids
 
