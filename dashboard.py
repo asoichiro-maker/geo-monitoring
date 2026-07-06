@@ -116,6 +116,12 @@ def load_all_brands_mention_rate(db_url, year, month):
     return saver.fetch_all_brands_mention_rate(ALL_CLIENT_IDS, year, month)
 
 @st.cache_data(ttl=300, show_spinner=False)
+def load_query_sets(db_url):
+    """全クライアントの質問リストを取得"""
+    saver = MentionSaver(db_url)
+    return saver.fetch_query_sets()
+
+@st.cache_data(ttl=300, show_spinner=False)
 def load_monthly_trend(db_url, client_id):
     """過去6ヶ月分の言及率を取得"""
     saver = MentionSaver(db_url)
@@ -409,6 +415,58 @@ def main():
             showlegend=False,
         )
         st.plotly_chart(fig_rank, use_container_width=True)
+
+    # ══════════════════════════════════════════
+    # クエリ一覧セクション
+    # ══════════════════════════════════════════
+    st.divider()
+    st.markdown("### 📋 クエリ一覧")
+    with st.spinner("クエリ取得中..."):
+        all_queries = load_query_sets(db_url)
+
+    if all_queries:
+        import pandas as pd
+        CLIENT_NAMES = {
+            "a1b2c3d4-0000-0000-0000-000000000001": "Dears Wedding",
+            "a1b2c3d4-0000-0000-0000-000000000002": "Arluis",
+            "a1b2c3d4-0000-0000-0000-000000000003": "ワタベウエディング",
+        }
+        df_qs = pd.DataFrame([{
+            "ブランド":   CLIENT_NAMES.get(r["client_id"], r["client_id"]),
+            "カテゴリ":   r.get("category") or "—",
+            "クエリ":     r.get("prompt_text", ""),
+            "有効":       "✅" if r.get("is_active") else "❌",
+        } for r in all_queries])
+
+        # フィルター
+        filter_col1, filter_col2 = st.columns([2, 2])
+        with filter_col1:
+            brand_options = ["全ブランド"] + sorted(df_qs["ブランド"].unique().tolist())
+            selected_brand = st.selectbox("ブランド絞り込み", brand_options, key="qs_brand")
+        with filter_col2:
+            cat_options = ["全カテゴリ"] + sorted(df_qs["カテゴリ"].unique().tolist())
+            selected_cat = st.selectbox("カテゴリ絞り込み", cat_options, key="qs_cat")
+
+        df_filtered = df_qs.copy()
+        if selected_brand != "全ブランド":
+            df_filtered = df_filtered[df_filtered["ブランド"] == selected_brand]
+        if selected_cat != "全カテゴリ":
+            df_filtered = df_filtered[df_filtered["カテゴリ"] == selected_cat]
+
+        st.caption(f"{len(df_filtered)} 件 / 全 {len(df_qs)} 件")
+        st.dataframe(
+            df_filtered,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "ブランド":  st.column_config.TextColumn(width="small"),
+                "カテゴリ":  st.column_config.TextColumn(width="small"),
+                "クエリ":    st.column_config.TextColumn(width="large"),
+                "有効":      st.column_config.TextColumn(width="small"),
+            },
+        )
+    else:
+        st.info("クエリが登録されていません。")
 
     # ── フッター ──
     st.divider()

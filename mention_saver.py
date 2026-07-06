@@ -132,6 +132,26 @@ class MentionSaver:
                 cols = [d[0] for d in cur.description]
                 return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+    def fetch_query_sets(self, client_id: str | None = None) -> list[dict]:
+        """query_sets テーブルから質問リストを取得する。client_id=None で全件取得。"""
+        if client_id:
+            sql = """
+                SELECT id, client_id, prompt_text, category, is_active, created_at
+                FROM query_sets WHERE client_id = %s ORDER BY category, created_at
+            """
+            params = (client_id,)
+        else:
+            sql = """
+                SELECT id, client_id, prompt_text, category, is_active, created_at
+                FROM query_sets ORDER BY client_id, category, created_at
+            """
+            params = ()
+        with _db_connect(self.database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                cols = [d[0] for d in cur.description]
+                return [dict(zip(cols, row)) for row in cur.fetchall()]
+
     @staticmethod
     def _to_db_row(ai_response_id: str, result: MentionResult) -> tuple:
         competitor_json = json.dumps(
