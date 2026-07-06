@@ -196,6 +196,24 @@ class MentionDetector:
                     is_mentioned=False,
                     sentiment_reason=f"JSON パース失敗（{e}）。要手動確認",
                 )
+            except anthropic.APIStatusError as e:
+                # 429 rate limit や 529 overload はリトライ
+                if attempt < self.MAX_RETRIES and e.status_code in (429, 529):
+                    wait = 10 * (attempt + 1)
+                    time.sleep(wait)
+                    continue
+                return MentionResult(
+                    is_mentioned=False,
+                    sentiment_reason=f"API エラー {e.status_code}（{e}）。スキップ",
+                )
+            except anthropic.APIError as e:
+                if attempt < self.MAX_RETRIES:
+                    time.sleep(5)
+                    continue
+                return MentionResult(
+                    is_mentioned=False,
+                    sentiment_reason=f"API 接続エラー（{e}）。スキップ",
+                )
 
     def analyze_batch(
         self,

@@ -249,13 +249,18 @@ def run(
 
     for i, resp in enumerate(collected_responses, 1):
         logger.debug("[%d/%d] 判定中: provider=%s", i, len(collected_responses), resp["provider"])
-        result = detector.analyze(
-            response_text=resp["response_text"],
-            brand_keywords=client_brand_keywords,
-            brand_domain=client_brand_domain,
-            competitor_keywords=client_competitor_keywords,
-            fact_sheet=client_fact_sheet,
-        )
+        try:
+            result = detector.analyze(
+                response_text=resp["response_text"],
+                brand_keywords=client_brand_keywords,
+                brand_domain=client_brand_domain,
+                competitor_keywords=client_competitor_keywords,
+                fact_sheet=client_fact_sheet,
+            )
+        except Exception as e:
+            logger.error("[%d/%d] 判定エラー（スキップ）: %s", i, len(collected_responses), e)
+            time.sleep(5)
+            continue
         analysis_records.append(AnalysisRecord(
             ai_response_id=resp["ai_response_id"],
             result=result,
