@@ -164,6 +164,41 @@ class MentionSaver:
             }
         return result
 
+    def fetch_all_brands_mention_rate(
+        self, client_ids: list[str], year: int, month: int
+    ) -> dict[str, dict]:
+        """
+        複数クライアントの言及率を一括取得する（競合比較用）。
+
+        Returns:
+            {
+                client_id: {
+                    "chatgpt": {"mention_rate": 0.75, "total": 28, "mentioned": 21},
+                    ...
+                },
+                ...
+            }
+        """
+        period = f"{year}-{month:02d}"
+        sql = """
+            SELECT client_id, ai_provider, mention_rate_pct, total_queries, mentioned_count
+            FROM v_mention_rate_monthly
+            WHERE client_id = ANY(%s) AND period = %s
+        """
+        with _db_connect(self.database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (client_ids, period))
+                rows = cur.fetchall()
+
+        result: dict[str, dict] = {cid: {} for cid in client_ids}
+        for cid, provider, rate, total, mentioned in rows:
+            result[cid][provider] = {
+                "mention_rate": float(rate) / 100.0 if rate is not None else 0.0,
+                "total": total,
+                "mentioned": mentioned,
+            }
+        return result
+
     def fetch_recent_analysis(
         self, client_id: str, limit: int = 100
     ) -> list[dict]:

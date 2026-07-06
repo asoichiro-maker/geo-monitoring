@@ -103,27 +103,72 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CLIENT_ID = "a1b2c3d4-0000-0000-0000-000000000001"
 
-BRAND_KEYWORDS = [
-    "Dears Wedding", "DEARS WEDDING", "dears wedding",
-    "ディアーズウェディング", "ディアーズ ウェディング",
-    "Arluis", "ARLUIS", "arluis",
-    "アルイス", "アルイスウェディング",
-    "Arluis Wedding", "ARLUIS WEDDING",
-    "Dears", "ディアーズ",
-]
-BRAND_DOMAIN = "dears-wedding.jp"
-COMPETITOR_KEYWORDS = [
-    "モノグラムチャペル", "ザ・グランドティアラ", "ラ・ヴィータ",
-    "ハーモニーガーデン", "アニバーサリー",
-]
-FACT_SHEET = {
-    "営業状況":        "通常営業中。予約受付中",
-    "対応エリア":      "東京都内（ガーデンウェディング・少人数婚専門）",
-    "ブランド正式名称": "Dears Wedding（運営ブランド名: Arluis）",
-    "運営会社":        "株式会社マークエッジ関連会社が運営",
-    "専門領域":        "少人数ウェディング（20名以下）専門。大規模披露宴は非対応",
-    "公式サイト":      "https://dears-wedding.jp / https://www.arluis.jp",
+# ── クライアント別ブランド設定 ─────────────────────────────────────────────────
+CLIENT_CONFIGS = {
+    # Dears Wedding（メインクライアント）
+    "a1b2c3d4-0000-0000-0000-000000000001": {
+        "brand_keywords": [
+            "Dears Wedding", "DEARS WEDDING", "dears wedding",
+            "ディアーズウェディング", "ディアーズ ウェディング",
+            "Dears", "ディアーズ", "dears-wedding.jp",
+        ],
+        "brand_domain": "dears-wedding.jp",
+        "competitor_keywords": [
+            "Arluis", "アルイス", "ワタベウエディング", "Watabe Wedding",
+            "モノグラムチャペル", "ザ・グランドティアラ",
+        ],
+        "fact_sheet": {
+            "ブランド正式名称": "Dears Wedding",
+            "営業状況":        "通常営業中。予約受付中",
+            "対応エリア":      "東京都内（ガーデンウェディング・少人数婚専門）",
+            "専門領域":        "少人数ウェディング（20名以下）専門。大規模披露宴は非対応",
+            "公式サイト":      "https://dears-wedding.jp",
+        },
+    },
+    # Arluis（競合①）
+    "a1b2c3d4-0000-0000-0000-000000000002": {
+        "brand_keywords": [
+            "Arluis", "ARLUIS", "arluis",
+            "アルイス", "アルイスウェディング",
+            "Arluis Wedding", "arluis.jp",
+        ],
+        "brand_domain": "arluis.jp",
+        "competitor_keywords": [
+            "Dears Wedding", "ディアーズウェディング",
+            "ワタベウエディング", "Watabe Wedding",
+        ],
+        "fact_sheet": {
+            "ブランド正式名称": "Arluis（アルイス）",
+            "対応エリア":      "東京都内",
+            "公式サイト":      "https://www.arluis.jp",
+        },
+    },
+    # ワタベウエディング（競合②）
+    "a1b2c3d4-0000-0000-0000-000000000003": {
+        "brand_keywords": [
+            "ワタベウエディング", "Watabe Wedding", "WATABE WEDDING",
+            "watabe wedding", "ワタベ", "watabe-wedding.co.jp",
+        ],
+        "brand_domain": "watabe-wedding.co.jp",
+        "competitor_keywords": [
+            "Dears Wedding", "ディアーズウェディング",
+            "Arluis", "アルイス",
+        ],
+        "fact_sheet": {
+            "ブランド正式名称": "ワタベウエディング（Watabe Wedding）",
+            "公式サイト":      "https://www.watabe-wedding.co.jp",
+        },
+    },
 }
+
+# 後方互換性のためのデフォルト値（旧コード参照用）
+_default = CLIENT_CONFIGS[DEFAULT_CLIENT_ID]
+BRAND_KEYWORDS       = _default["brand_keywords"]
+BRAND_DOMAIN         = _default["brand_domain"]
+COMPETITOR_KEYWORDS  = _default["competitor_keywords"]
+FACT_SHEET           = _default["fact_sheet"]
+
+ALL_CLIENT_IDS = list(CLIENT_CONFIGS.keys())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -195,14 +240,21 @@ def run(
     detector = MentionDetector(api_key=anthropic_api_key)
     analysis_records: list[AnalysisRecord] = []
 
+    # クライアント別ブランド設定を取得
+    cfg = CLIENT_CONFIGS.get(client_id, CLIENT_CONFIGS[DEFAULT_CLIENT_ID])
+    client_brand_keywords      = cfg["brand_keywords"]
+    client_brand_domain        = cfg["brand_domain"]
+    client_competitor_keywords = cfg["competitor_keywords"]
+    client_fact_sheet          = cfg["fact_sheet"]
+
     for i, resp in enumerate(collected_responses, 1):
         logger.debug("[%d/%d] 判定中: provider=%s", i, len(collected_responses), resp["provider"])
         result = detector.analyze(
             response_text=resp["response_text"],
-            brand_keywords=BRAND_KEYWORDS,
-            brand_domain=BRAND_DOMAIN,
-            competitor_keywords=COMPETITOR_KEYWORDS,
-            fact_sheet=FACT_SHEET,
+            brand_keywords=client_brand_keywords,
+            brand_domain=client_brand_domain,
+            competitor_keywords=client_competitor_keywords,
+            fact_sheet=client_fact_sheet,
         )
         analysis_records.append(AnalysisRecord(
             ai_response_id=resp["ai_response_id"],
@@ -271,6 +323,10 @@ def _parse_args() -> argparse.Namespace:
         "--no-sheets", action="store_true",
         help="Google Sheets 出力をスキップ",
     )
+    parser.add_argument(
+        "--all-clients", action="store_true",
+        help="全クライアント（Dears Wedding + 競合2社）を順番に実行",
+    )
     return parser.parse_args()
 
 
@@ -288,27 +344,37 @@ if __name__ == "__main__":
     if not args.no_sheets and not spreadsheet_id:
         print("警告: GEO_SPREADSHEET_ID が未設定のため Sheets 出力をスキップします。")
 
-    result = run(
-        client_id=args.client_id,
-        database_url=os.environ["DATABASE_URL"],
-        anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
-        spreadsheet_id=spreadsheet_id,
-        providers=args.providers,
-        skip_sheets=args.no_sheets,
-    )
+    target_ids = ALL_CLIENT_IDS if args.all_clients else [args.client_id]
+    any_success = False
 
-    print("\n" + "=" * 55)
-    print("  パイプライン実行完了")
-    print("=" * 55)
-    for k, v in result.items():
-        print(f"  {k}: {v}")
-    if result.get("spreadsheet_url"):
-        print(f"\n  Sheets: {result['spreadsheet_url']}")
-    print("=" * 55)
+    for cid in target_ids:
+        brand_name = CLIENT_CONFIGS[cid]["fact_sheet"].get("ブランド正式名称", cid)
+        logger.info("▶ クライアント: %s (%s)", brand_name, cid)
 
-    # Slack 通知
-    slack_url = os.environ.get("SLACK_WEBHOOK_URL")
-    if slack_url:
-        _send_slack(slack_url, result)
+        result = run(
+            client_id=cid,
+            database_url=os.environ["DATABASE_URL"],
+            anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
+            spreadsheet_id=spreadsheet_id,
+            providers=args.providers,
+            skip_sheets=args.no_sheets,
+        )
 
-    sys.exit(0 if result["analyses_saved"] > 0 else 1)
+        print("\n" + "=" * 55)
+        print(f"  パイプライン実行完了: {brand_name}")
+        print("=" * 55)
+        for k, v in result.items():
+            print(f"  {k}: {v}")
+        if result.get("spreadsheet_url"):
+            print(f"\n  Sheets: {result['spreadsheet_url']}")
+        print("=" * 55)
+
+        # Slack 通知
+        slack_url = os.environ.get("SLACK_WEBHOOK_URL")
+        if slack_url:
+            _send_slack(slack_url, {**result, "client": brand_name})
+
+        if result["analyses_saved"] > 0:
+            any_success = True
+
+    sys.exit(0 if any_success else 1)

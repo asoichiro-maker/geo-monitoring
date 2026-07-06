@@ -48,6 +48,19 @@ from mention_saver import MentionSaver
 
 # ─── 定数 ────────────────────────────────────────────────────────────────────
 DEFAULT_CLIENT_ID = "a1b2c3d4-0000-0000-0000-000000000001"
+
+# ── 競合クライアント設定 ──────────────────────────────────────────────────────
+COMPETITOR_CLIENTS = {
+    "a1b2c3d4-0000-0000-0000-000000000001": "Dears Wedding",
+    "a1b2c3d4-0000-0000-0000-000000000002": "Arluis",
+    "a1b2c3d4-0000-0000-0000-000000000003": "ワタベウエディング",
+}
+ALL_CLIENT_IDS = list(COMPETITOR_CLIENTS.keys())
+BRAND_COLORS = {
+    "a1b2c3d4-0000-0000-0000-000000000001": "#C9A84C",  # Dears Wedding (gold)
+    "a1b2c3d4-0000-0000-0000-000000000002": "#4A90D9",  # Arluis (blue)
+    "a1b2c3d4-0000-0000-0000-000000000003": "#7B68EE",  # ワタベ (purple)
+}
 PROVIDERS   = ["chatgpt", "gemini", "perplexity", "ai_overview"]
 LABELS      = {"chatgpt":"ChatGPT","gemini":"Gemini",
                "perplexity":"Perplexity","ai_overview":"AI Overview"}
@@ -97,6 +110,12 @@ def load_analysis(db_url, client_id, limit=500):
     return saver.fetch_recent_analysis(client_id, limit=limit)
 
 @st.cache_data(ttl=300, show_spinner=False)
+def load_all_brands_mention_rate(db_url, year, month):
+    """全クライアントの言及率を取得（競合比較用）"""
+    saver = MentionSaver(db_url)
+    return saver.fetch_all_brands_mention_rate(ALL_CLIENT_IDS, year, month)
+
+@st.cache_data(ttl=300, show_spinner=False)
 def load_monthly_trend(db_url, client_id):
     """過去6ヶ月分の言及率を取得"""
     saver = MentionSaver(db_url)
@@ -131,7 +150,7 @@ def main():
     col_logo, col_title, col_link = st.columns([1, 6, 2])
     with col_title:
         st.markdown(f"<h1 style='margin-bottom:0'>💍 GEO モニタリング ダッシュボード</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color:#666;margin-top:4px'>Dears Wedding（Arluis）| AI言及率・誤情報 リアルタイム監視</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color:#666;margin-top:4px'>Dears Wedding | AI言及率・誤情報 リアルタイム監視 ＋ 競合比較（Arluis / ワタベウエディング）</p>", unsafe_allow_html=True)
     with col_link:
         st.markdown("<br>", unsafe_allow_html=True)
         if SHEETS_URL:
@@ -297,11 +316,105 @@ def main():
         } for r in month_rows])
         st.dataframe(df_det, use_container_width=True, hide_index=True)
 
+    # ══════════════════════════════════════════
+    # 競合比較セクション
+    # ══════════════════════════════════════════
+    st.divider()
+    st.markdown("### 🏆 競合比較 — AI言及率 ブランド別")
+    st.caption("同一クエリセットを3社に適用し、AIがどのブランドを推薦するかを比較します。")
+
+    with st.spinner("競合データ取得中..."):
+        all_brands_data = load_all_brands_mention_rate(db_url, year, month)
+
+    import pandas as pd
+
+    # ── 総合言及率 比較カード ──
+    brand_cols = st.columns(len(COMPETITOR_CLIENTS))
+    for col, (cid, brand_name) in zip(brand_cols, COMPETITOR_CLIENTS.items()):
+        brand_data = all_brands_data.get(cid, {})
+        b_total = sum(brand_data.get(p, {}).get("total", 0) for p in PROVIDERS)
+        b_mentioned = sum(brand_data.get(p, {}).get("mentioned", 0) for p in PROVIDERS)
+        b_overall = b_mentioned / b_total * 100 if b_total else 0
+        color = BRAND_COLORS[cid]
+        is_self = (cid == DEFAULT_CLIENT_ID)
+        with col:
+            st.markdown(f"""
+            <div class="metric-card" style="border-left-color:{color}">
+              <div class="metric-label">{'⭐ ' if is_self else ''}{brand_name}</div>
+              <div class="metric-value" style="color:{color}">{b_overall:.1f}%</div>
+              <div class="metric-sub">{b_mentioned} / {b_total} クエリ {'← 自社' if is_self else ''}</div>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── プロバイダー別 グループドバーチャート ──
+    comp_chart_col1, comp_chart_col2 = st.columns([3, 2])
+
+    with comp_chart_col1:
+        st.markdown("#### プロバイダー別 × ブランド別 言及率")
+        rows = []
+        for cid, brand_name in COMPETITOR_CLIENTS.items():
+            brand_data = all_brands_data.get(cid, {})
+            for p in PROVIDERS:
+                rate = brand_data.get(p, {}).get("mention_rate", 0) * 100
+                rows.append({"ブランド": brand_name, "AI": LABELS[p], "言及率": round(rate, 1)})
+        if rows:
+            df_comp = pd.DataFrame(rows)
+            brand_color_map = {v: BRAND_COLORS[k] for k, v in COMPETITOR_CLIENTS.items()}
+            fig_comp = px.bar(
+                df_comp, x="AI", y="言及率", color="ブランド", barmode="group",
+                color_discrete_map=brand_color_map,
+                labels={"言及率": "言及率 (%)"},
+                text_auto=".1f",
+            )
+            fig_comp.update_layout(
+                plot_bgcolor="white", paper_bgcolor="white",
+                font_color="#333", legend_title="ブランド",
+                yaxis=dict(range=[0, 105], ticksuffix="%", gridcolor="#eee"),
+                xaxis=dict(gridcolor="#eee"),
+                margin=dict(l=10, r=10, t=10, b=10),
+                height=300,
+            )
+            fig_comp.update_traces(textposition="outside")
+            st.plotly_chart(fig_comp, use_container_width=True)
+        else:
+            st.info("競合データがありません。先にパイプラインを実行してください。")
+
+    with comp_chart_col2:
+        st.markdown("#### 総合言及率 ランキング")
+        rank_rows = []
+        for cid, brand_name in COMPETITOR_CLIENTS.items():
+            brand_data = all_brands_data.get(cid, {})
+            b_total = sum(brand_data.get(p, {}).get("total", 0) for p in PROVIDERS)
+            b_mentioned = sum(brand_data.get(p, {}).get("mentioned", 0) for p in PROVIDERS)
+            b_overall = b_mentioned / b_total * 100 if b_total else 0
+            rank_rows.append({"brand": brand_name, "rate": round(b_overall, 1), "color": BRAND_COLORS[cid]})
+        rank_rows.sort(key=lambda x: -x["rate"])
+
+        fig_rank = go.Figure(go.Bar(
+            x=[r["rate"] for r in rank_rows],
+            y=[r["brand"] for r in rank_rows],
+            orientation="h",
+            marker_color=[r["color"] for r in rank_rows],
+            text=[f"{r['rate']:.1f}%" for r in rank_rows],
+            textposition="outside",
+        ))
+        fig_rank.update_layout(
+            plot_bgcolor="white", paper_bgcolor="white",
+            font_color="#333",
+            xaxis=dict(range=[0, 105], ticksuffix="%", gridcolor="#eee"),
+            yaxis=dict(autorange="reversed"),
+            margin=dict(l=10, r=40, t=10, b=10),
+            height=300,
+            showlegend=False,
+        )
+        st.plotly_chart(fig_rank, use_container_width=True)
+
     # ── フッター ──
     st.divider()
     st.markdown(
         f"<p style='text-align:center;color:#aaa;font-size:12px'>"
-        f"GEO モニタリング SaaS | Dears Wedding（Arluis）| "
+        f"GEO モニタリング SaaS | Dears Wedding | "
         f"最終更新: {datetime.now().strftime('%Y-%m-%d %H:%M')}</p>",
         unsafe_allow_html=True
     )
