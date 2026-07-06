@@ -180,14 +180,15 @@ class MentionSaver:
             }
         """
         period = f"{year}-{month:02d}"
-        sql = """
+        placeholders = ",".join(["%s"] * len(client_ids))
+        sql = f"""
             SELECT client_id, ai_provider, mention_rate_pct, total_queries, mentioned_count
             FROM v_mention_rate_monthly
-            WHERE client_id = ANY(%s) AND period = %s
+            WHERE client_id IN ({placeholders}) AND period = %s
         """
         with _db_connect(self.database_url) as conn:
             with conn.cursor() as cur:
-                cur.execute(sql, (client_ids, period))
+                cur.execute(sql, (*client_ids, period))
                 rows = cur.fetchall()
 
         result: dict[str, dict] = {cid: {} for cid in client_ids}
@@ -255,6 +256,4 @@ class MentionSaver:
             Json(json.loads(competitor_json)),  # JSONB
             result.misinformation_flag,
             result.misinformation_detail,
-            result.raw_mention_excerpt,
-            datetime.now(timezone.utc),
-        )
+            result.r
