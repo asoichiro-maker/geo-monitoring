@@ -133,6 +133,33 @@ class MentionSaver:
                 cols = [d[0] for d in cur.description]
                 return [dict(zip(cols, row)) for row in cur.fetchall()]
 
+    def fetch_mention_rate_months(
+        self, client_id: str, periods: list[str]
+    ) -> dict[str, dict]:
+        """複数月の言及率を1クエリで一括取得（load_monthly_trend 最適化用）。
+        戻り値: {period: {provider: {mention_rate, total, mentioned}}}
+        """
+        if not periods:
+            return {}
+        placeholders = ",".join(["%s"] * len(periods))
+        sql = (
+            f"SELECT period, ai_provider, mention_rate_pct, total_queries, mentioned_count "
+            f"FROM v_mention_rate_monthly "
+            f"WHERE client_id = %s AND period IN ({placeholders})"
+        )
+        with _db_connect(self.database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (client_id, *periods))
+                rows = cur.fetchall()
+        result: dict[str, dict] = {}
+        for period, provider, rate, total, mentioned in rows:
+            result.setdefault(period, {})[provider] = {
+                "mention_rate": float(rate) / 100.0 if rate is not None else 0.0,
+                "total": total,
+                "mentioned": mentioned,
+            }
+        return result
+
     def fetch_query_sets(self, client_id: str | None = None) -> list[dict]:
         """query_sets テーブルから質問リストを取得する。client_id=None で全件取得。"""
         if client_id:

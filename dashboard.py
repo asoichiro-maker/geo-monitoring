@@ -123,21 +123,25 @@ def load_query_sets(db_url):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def load_monthly_trend(db_url, client_id):
-    """過去6ヶ月分の言及率を取得"""
+    """過去6ヶ月分の言及率を1クエリで取得（DB接続を6→1に最適化）"""
     saver = MentionSaver(db_url)
     now = datetime.now(timezone.utc)
-    result = []
+    periods = []
     for delta in range(5, -1, -1):
         month = now.month - delta
         year  = now.year
         while month <= 0:
             month += 12; year -= 1
-        mr = saver.fetch_mention_rate(client_id, year, month)
+        periods.append(f"{year}-{month:02d}")
+    mr_all = saver.fetch_mention_rate_months(client_id, periods)
+    result = []
+    for period in periods:
+        mr = mr_all.get(period, {})
         for p in PROVIDERS:
             stats = mr.get(p, {})
             if stats.get("total", 0) > 0:
                 result.append({
-                    "period": f"{year}-{month:02d}",
+                    "period": period,
                     "provider": LABELS[p],
                     "mention_rate": round(stats.get("mention_rate", 0) * 100, 1),
                     "total": stats.get("total", 0),
@@ -180,9 +184,21 @@ def main():
 
     # ── データ取得 ──
     with st.spinner("データ取得中..."):
-        mention_rate = load_mention_rate(db_url, DEFAULT_CLIENT_ID, year, month)
-        analysis     = load_analysis(db_url, DEFAULT_CLIENT_ID, limit=1000)
-        trend_data   = load_monthly_trend(db_url, DEFAULT_CLIENT_ID)
+        try:
+            mention_rate = load_mention_rate(db_url, DEFAULT_CLIENT_ID, year, month)
+        except Exception as e:
+            st.error(f"言及率データの取得に失敗しました: {e}")
+            mention_rate = {}
+        try:
+            analysis = load_analysis(db_url, DEFAULT_CLIENT_ID, limit=500)
+        except Exception as e:
+            st.error(f"分析データの取得に失敗しました: {e}")
+            analysis = []
+        try:
+            trend_data = load_monthly_trend(db_url, DEFAULT_CLIENT_ID)
+        except Exception as e:
+            st.error(f"トレンドデータの取得に失敗しました: {e}")
+            trend_data = []
 
     # 当月の分析データ絞り込み
     pfx = f"{year}-{month:02d}"
@@ -330,7 +346,11 @@ def main():
     st.caption("同一クエリセットを3社に適用し、AIがどのブランドを推薦するかを比較します。")
 
     with st.spinner("競合データ取得中..."):
-        all_brands_data = load_all_brands_mention_rate(db_url, year, month)
+        try:
+            all_brands_data = load_all_brands_mention_rate(db_url, year, month)
+        except Exception as e:
+            st.error(f"競合データの取得に失敗しました: {e}")
+            all_brands_data = {}
 
     import pandas as pd
 
@@ -422,7 +442,11 @@ def main():
     st.divider()
     st.markdown("### 📋 クエリ一覧")
     with st.spinner("クエリ取得中..."):
-        all_queries = load_query_sets(db_url)
+        try:
+            all_queries = load_query_sets(db_url)
+        except Exception as e:
+            st.error(f"クエリデータの取得に失敗しました: {e}")
+            all_queries = []
 
     if all_queries:
         import pandas as pd
