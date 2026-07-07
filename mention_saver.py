@@ -94,7 +94,8 @@ class MentionSaver:
         for provider, total, mentioned, rate in rows:
             result[provider] = {
                 "mention_rate": float(rate) / 100.0 if rate is not None else 0.0,
-                "total": total, "mentioned": mentioned,
+                "total": int(total) if total is not None else 0,
+                "mentioned": int(mentioned) if mentioned is not None else 0,
             }
         return result
 
@@ -121,7 +122,8 @@ class MentionSaver:
         for cid, provider, total, mentioned, rate in rows:
             result[cid][provider] = {
                 "mention_rate": float(rate) / 100.0 if rate is not None else 0.0,
-                "total": total, "mentioned": mentioned,
+                "total": int(total) if total is not None else 0,
+                "mentioned": int(mentioned) if mentioned is not None else 0,
             }
         return result
 
@@ -168,8 +170,8 @@ class MentionSaver:
                 result[period] = {}
             result[period][provider] = {
                 "mention_rate": float(rate) / 100.0 if rate is not None else 0.0,
-                "total": total,
-                "mentioned": mentioned,
+                "total": int(total) if total is not None else 0,
+                "mentioned": int(mentioned) if mentioned is not None else 0,
             }
         return result
 
