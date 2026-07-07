@@ -197,6 +197,12 @@ class MentionDetector:
                     sentiment_reason=f"JSON パース失敗（{e}）。要手動確認",
                 )
             except anthropic.APIStatusError as e:
+                # エラー詳細をログに出力
+                import logging as _logging
+                _logging.getLogger(__name__).error(
+                    "APIStatusError %s: %s", e.status_code,
+                    getattr(e, 'message', None) or str(e)
+                )
                 # 429 rate limit や 529 overload はリトライ
                 if attempt < self.MAX_RETRIES and e.status_code in (429, 529):
                     wait = 10 * (attempt + 1)

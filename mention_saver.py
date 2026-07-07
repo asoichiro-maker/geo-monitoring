@@ -23,6 +23,7 @@ def _db_connect(database_url: str) -> psycopg2.extensions.connection:
         password=unquote(p.password or ""),
         client_encoding="UTF8",
         sslmode="require" if is_supabase else "prefer",
+        connect_timeout=15,
     )
 
 
