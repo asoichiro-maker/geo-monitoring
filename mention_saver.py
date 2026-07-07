@@ -70,7 +70,7 @@ class MentionSaver:
             with conn.cursor() as cur:
                 result_rows = execute_values(cur, sql, rows, fetch=True)
                 ids = [str(row[0]) for row in result_rows]
-        logger.info("mention_analysis バッチ保存: %d 件", len(ids))
+        logger.info("mention_analysis: %d saved", len(ids))
         return ids
 
     def fetch_mention_rate(self, client_id: str, year: int, month: int) -> dict:
@@ -94,7 +94,7 @@ class MentionSaver:
 
     def fetch_all_brands_mention_rate(
         self, client_ids: list[str], year: int, month: int
-    ) -> dict[str, dict]:
+    ) -> dict:
         period = f"{year}-{month:02d}"
         placeholders = ",".join(["%s"] * len(client_ids))
         sql = (
@@ -114,7 +114,7 @@ class MentionSaver:
             }
         return result
 
-    def fetch_recent_analysis(self, client_id: str, limit: int = 100) -> list[dict]:
+    def fetch_recent_analysis(self, client_id: str, limit: int = 100) -> list:
         sql = """
             SELECT ma.id, ma.ai_response_id, ar.ai_provider, qs.prompt_text,
                    qs.category, ar.retrieved_at, ma.is_mentioned, ma.mention_type,
@@ -133,34 +133,32 @@ class MentionSaver:
                 cols = [d[0] for d in cur.description]
                 return [dict(zip(cols, row)) for row in cur.fetchall()]
 
-    def fetch_mention_rate_months(
-        self, client_id: str, periods: list[str]
-    ) -> dict[str, dict]:
-        """複数月の言及率を1クエリで一括取得（load_monthly_trend 最適化用）。
-        戻り値: {period: {provider: {mention_rate, total, mentioned}}}
-        """
+    def fetch_mention_rate_months(self, client_id: str, periods: list) -> dict:
+        """複数月の言及率を1クエリで一括取得。"""
         if not periods:
             return {}
         placeholders = ",".join(["%s"] * len(periods))
         sql = (
-            f"SELECT period, ai_provider, mention_rate_pct, total_queries, mentioned_count "
-            f"FROM v_mention_rate_monthly "
-            f"WHERE client_id = %s AND period IN ({placeholders})"
+            "SELECT period, ai_provider, mention_rate_pct, total_queries, mentioned_count "
+            "FROM v_mention_rate_monthly "
+            "WHERE client_id = %s AND period IN (" + placeholders + ")"
         )
         with _db_connect(self.database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, (client_id, *periods))
                 rows = cur.fetchall()
-        result: dict[str, dict] = {}
+        result = {}
         for period, provider, rate, total, mentioned in rows:
-            result.setdefault(period, {})[provider] = {
+            if period not in result:
+                result[period] = {}
+            result[period][provider] = {
                 "mention_rate": float(rate) / 100.0 if rate is not None else 0.0,
                 "total": total,
                 "mentioned": mentioned,
             }
         return result
 
-    def fetch_query_sets(self, client_id: str | None = None) -> list[dict]:
+    def fetch_query_sets(self, client_id=None) -> list:
         """query_sets テーブルから質問リストを取得する。client_id=None で全件取得。"""
         if client_id:
             sql = """
