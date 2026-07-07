@@ -114,6 +114,14 @@ class QueryRunner:
                 stats["total"] += 1
 
                 try:
+                    # 同月に同クエリ×プロバイダーが既に存在すればスキップ
+                    if self._already_run_this_month(query_set_id, provider_name):
+                        stats["skipped"] += 1
+                        stats["total"] -= 1  # total はスキップ分を除く
+                        logger.debug("[%s] スキップ（今月実行済み）: '%s...'",
+                                     provider_name, prompt_text[:30])
+                        continue
+
                     response = adapter.fetch(prompt_text)
 
                     # _save_response は ai_responses に INSERT して UUID を返す
@@ -160,6 +168,20 @@ class QueryRunner:
                 )
                 cols = [d[0] for d in cur.description]
                 return [dict(zip(cols, row)) for row in cur.fetchall()]
+
+    def _already_run_this_month(self, query_set_id: str, provider: str) -> bool:
+        """同月・同クエリ・同プロバイダーのレコードが既に存在するか確認。"""
+        sql = """
+            SELECT 1 FROM ai_responses
+            WHERE query_set_id = %s
+              AND ai_provider = %s
+              AND DATE_TRUNC('month', retrieved_at) = DATE_TRUNC('month', NOW())
+            LIMIT 1
+        """
+        with _db_connect(self.database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (query_set_id, provider))
+                return cur.fetchone() is not None
 
     def _save_response(self, query_set_id: str, response: AIResponse) -> str:
         """
