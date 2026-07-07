@@ -75,17 +75,23 @@ class MentionSaver:
 
     def fetch_mention_rate(self, client_id: str, year: int, month: int) -> dict:
         period = f"{year}-{month:02d}"
+        # カテゴリをまたいで集約（ビューはcategoryでもGROUP BYしているため）
         sql = """
-            SELECT ai_provider, mention_rate_pct, total_queries, mentioned_count
+            SELECT ai_provider,
+                   SUM(total_queries) AS total_queries,
+                   SUM(mentioned_count) AS mentioned_count,
+                   ROUND(SUM(mentioned_count)::numeric
+                         / NULLIF(SUM(total_queries), 0)::numeric * 100, 1) AS mention_rate_pct
             FROM v_mention_rate_monthly
             WHERE client_id = %s AND period = %s
+            GROUP BY ai_provider
         """
         with _db_connect(self.database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, (client_id, period))
                 rows = cur.fetchall()
         result = {}
-        for provider, rate, total, mentioned in rows:
+        for provider, total, mentioned, rate in rows:
             result[provider] = {
                 "mention_rate": float(rate) / 100.0 if rate is not None else 0.0,
                 "total": total, "mentioned": mentioned,
@@ -97,17 +103,22 @@ class MentionSaver:
     ) -> dict:
         period = f"{year}-{month:02d}"
         placeholders = ",".join(["%s"] * len(client_ids))
+        # カテゴリをまたいで集約（ビューはcategoryでもGROUP BYしているため）
         sql = (
-            "SELECT client_id, ai_provider, mention_rate_pct, total_queries, mentioned_count "
+            "SELECT client_id, ai_provider, "
+            "SUM(total_queries) AS total_queries, "
+            "SUM(mentioned_count) AS mentioned_count, "
+            "ROUND(SUM(mentioned_count)::numeric / NULLIF(SUM(total_queries), 0)::numeric * 100, 1) AS mention_rate_pct "
             "FROM v_mention_rate_monthly "
-            "WHERE client_id IN (" + placeholders + ") AND period = %s"
+            "WHERE client_id IN (" + placeholders + ") AND period = %s "
+            "GROUP BY client_id, ai_provider"
         )
         with _db_connect(self.database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, (*client_ids, period))
                 rows = cur.fetchall()
         result = {cid: {} for cid in client_ids}
-        for cid, provider, rate, total, mentioned in rows:
+        for cid, provider, total, mentioned, rate in rows:
             result[cid][provider] = {
                 "mention_rate": float(rate) / 100.0 if rate is not None else 0.0,
                 "total": total, "mentioned": mentioned,
@@ -134,21 +145,25 @@ class MentionSaver:
                 return [dict(zip(cols, row)) for row in cur.fetchall()]
 
     def fetch_mention_rate_months(self, client_id: str, periods: list) -> dict:
-        """複数月の言及率を1クエリで一括取得。"""
+        """複数月の言及率を1クエリで一括取得。カテゴリをまたいで集約。"""
         if not periods:
             return {}
         placeholders = ",".join(["%s"] * len(periods))
         sql = (
-            "SELECT period, ai_provider, mention_rate_pct, total_queries, mentioned_count "
+            "SELECT period, ai_provider, "
+            "SUM(total_queries) AS total_queries, "
+            "SUM(mentioned_count) AS mentioned_count, "
+            "ROUND(SUM(mentioned_count)::numeric / NULLIF(SUM(total_queries), 0)::numeric * 100, 1) AS mention_rate_pct "
             "FROM v_mention_rate_monthly "
-            "WHERE client_id = %s AND period IN (" + placeholders + ")"
+            "WHERE client_id = %s AND period IN (" + placeholders + ") "
+            "GROUP BY period, ai_provider"
         )
         with _db_connect(self.database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, (client_id, *periods))
                 rows = cur.fetchall()
         result = {}
-        for period, provider, rate, total, mentioned in rows:
+        for period, provider, total, mentioned, rate in rows:
             if period not in result:
                 result[period] = {}
             result[period][provider] = {
