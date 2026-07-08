@@ -105,57 +105,68 @@ DEFAULT_CLIENT_ID = "a1b2c3d4-0000-0000-0000-000000000001"
 
 # ── クライアント別ブランド設定 ─────────────────────────────────────────────────
 CLIENT_CONFIGS = {
-    # Dears Wedding（メインクライアント）
+    # Dears Wedding RESORT（メインクライアント）
     "a1b2c3d4-0000-0000-0000-000000000001": {
         "brand_keywords": [
             "Dears Wedding", "DEARS WEDDING", "dears wedding",
-            "ディアーズウェディング", "ディアーズ ウェディング",
-            "Dears", "ディアーズ", "dears-wedding.jp",
+            "Dears Wedding RESORT", "ディアーズウェディング",
+            "ディアーズ ウェディング", "ディアーズウェディングリゾート",
+            "Dears", "ディアーズ", "dearswedding-resort.jp",
         ],
-        "brand_domain": "dears-wedding.jp",
+        "brand_domain": "dearswedding-resort.jp",
         "competitor_keywords": [
-            "Arluis", "アルイス", "ワタベウエディング", "Watabe Wedding",
-            "モノグラムチャペル", "ザ・グランドティアラ",
+            "アールイズ", "アールイズウエディング", "ARLUIS WEDDING",
+            "ワタベウェディング", "ワタベウエディング", "Watabe Wedding",
         ],
         "fact_sheet": {
-            "ブランド正式名称": "Dears Wedding",
-            "営業状況":        "通常営業中。予約受付中",
-            "対応エリア":      "東京都内（ガーデンウェディング・少人数婚専門）",
-            "専門領域":        "少人数ウェディング（20名以下）専門。大規模披露宴は非対応",
-            "公式サイト":      "https://dears-wedding.jp",
+            "ブランド正式名称": "Dears Wedding RESORT",
+            "専門領域":        "国内・海外リゾートウエディング専門",
+            "対応エリア":      "沖縄、ハワイ、バリ島、ダナン（ベトナム）",
+            "挙式スタイル":    "リゾートチャペル挙式・フォトウエディング",
+            "営業状況":        "通常営業中",
+            "公式サイト":      "https://dearswedding-resort.jp",
         },
     },
-    # Arluis（競合①）
+    # アールイズ・ウエディング（競合①）
     "a1b2c3d4-0000-0000-0000-000000000002": {
         "brand_keywords": [
-            "Arluis", "ARLUIS", "arluis",
-            "アルイス", "アルイスウェディング",
-            "Arluis Wedding", "arluis.jp",
+            "アールイズ", "アールイズウエディング", "ARLUIS WEDDING",
+            "ARLUIS", "arluis", "arluis.com",
         ],
-        "brand_domain": "arluis.jp",
+        "brand_domain": "arluis.com",
         "competitor_keywords": [
             "Dears Wedding", "ディアーズウェディング",
-            "ワタベウエディング", "Watabe Wedding",
+            "ワタベウェディング", "ワタベウエディング", "Watabe Wedding",
         ],
         "fact_sheet": {
-            "ブランド正式名称": "Arluis（アルイス）",
-            "対応エリア":      "東京都内",
-            "公式サイト":      "https://www.arluis.jp",
+            "ブランド正式名称": "アールイズ・ウエディング（ARLUIS WEDDING）",
+            "専門領域":        "海外挙式・リゾートウエディング・沖縄結婚式専門",
+            "対応エリア":      "ハワイ、グアム、沖縄（本島・宮古島）でのリゾートウエディング",
+            "相談窓口":        "全国24都道府県・33店舗の相談カウンターおよびオンライン相談",
+            "挙式スタイル":    "リゾートチャペル挙式、フォトウエディング、ハネムーンウエディング",
+            "営業状況":        "通常営業中",
+            "公式サイト":      "https://www.arluis.com",
         },
     },
-    # ワタベウエディング（競合②）
+    # ワタベウェディング（競合②）
     "a1b2c3d4-0000-0000-0000-000000000003": {
         "brand_keywords": [
-            "ワタベウエディング", "Watabe Wedding", "WATABE WEDDING",
-            "watabe wedding", "ワタベ", "watabe-wedding.co.jp",
+            "ワタベウェディング", "ワタベウエディング", "Watabe Wedding",
+            "WATABE WEDDING", "watabe wedding", "ワタベ",
+            "watabe-wedding.co.jp",
         ],
         "brand_domain": "watabe-wedding.co.jp",
         "competitor_keywords": [
             "Dears Wedding", "ディアーズウェディング",
-            "Arluis", "アルイス",
+            "アールイズ", "アールイズウエディング", "ARLUIS WEDDING",
         ],
         "fact_sheet": {
-            "ブランド正式名称": "ワタベウエディング（Watabe Wedding）",
+            "ブランド正式名称": "ワタベウェディング（WATABE WEDDING）",
+            "専門領域":        "海外挙式・リゾートウェディング・フォトウェディング専門",
+            "対応エリア":      "国内リゾート（沖縄等）および海外ロケーション",
+            "挙式スタイル":    "リゾ婚、フォトウェディング、ウェディングプロデュース、リトル婚",
+            "ドレス":          "自社ウェディング衣裳ブランド「genicoco（ジェニーココ）」保有",
+            "営業状況":        "通常営業中。受付時間11:00〜19:00（0120-363-230）",
             "公式サイト":      "https://www.watabe-wedding.co.jp",
         },
     },
