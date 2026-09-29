@@ -25,3 +25,7 @@ python-dotenv>=1.0.0
 streamlit>=1.35.0
 plotly>=5.22.0
 pandas>=2.0.0
+
+# 会計管理（請求書読込）
+pypdf>=4.0.0
+openpyxl>=3.1.0

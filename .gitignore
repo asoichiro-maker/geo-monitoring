@@ -27,3 +27,6 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# 会計管理 DB（ローカルのみ）
+data/
